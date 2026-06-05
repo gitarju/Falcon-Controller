@@ -1,0 +1,31 @@
+name: airsim_controller
+description: FALCON Project - AirSim Drone Controller
+
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_joystick: ^0.0.3
+  flutter_bluetooth_serial: ^0.4.0
+  permission_handler: ^11.0.0
+
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  flutter_launcher_icons: ^0.13.1
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: false
+  image_path: "assets/icon.png"
+
+flutter:
+  uses-material-design: true
