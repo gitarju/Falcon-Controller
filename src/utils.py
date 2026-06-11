@@ -20,11 +20,9 @@ def get_local_ip() -> str:
     return ip
 
 def check_vgamepad_quietly() -> bool:
-    """Check if the vgamepad module is loadable and can create a gamepad device."""
+    """Check if the vgamepad module is loadable."""
     try:
-        import vgamepad as vg
-        g = vg.VX360Gamepad()
-        del g
+        import vgamepad
         return True
     except Exception:
         return False

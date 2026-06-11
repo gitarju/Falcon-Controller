@@ -40,16 +40,35 @@ def assemble_staging(root_dir):
         shutil.rmtree(dist_bin)
     os.makedirs(dist_bin, exist_ok=True)
     
+    # Find adb platform-tools directory dynamically
+    platform_tools_dir = ""
+    adb_in_path = shutil.which("adb")
+    if adb_in_path:
+        platform_tools_dir = os.path.dirname(adb_in_path)
+    else:
+        userprofile = os.environ.get("USERPROFILE", "")
+        if userprofile:
+            sdk_dir = os.path.join(userprofile, "AppData", "Local", "Android", "Sdk", "platform-tools")
+            if os.path.exists(os.path.join(sdk_dir, "adb.exe")):
+                platform_tools_dir = sdk_dir
+
+    if not platform_tools_dir:
+        # Fallback to default developer path just in case
+        platform_tools_dir = r"C:\Users\arjun\AppData\Local\Android\Sdk\platform-tools"
+        print(f"[*] Platform-tools not found. Falling back to default developer path: {platform_tools_dir}")
+    else:
+        print(f"[+] Found Android SDK platform-tools at: {platform_tools_dir}")
+
     # Source file mappings
     files_to_copy = [
         # (source, name)
         (os.path.join(root_dir, "dist", "server.exe"), "server.exe"),
         (os.path.join(root_dir, "assets", "icon.ico"), "icon.ico"),
-        (os.path.join(root_dir, "docs", "README.md"), "README.md"),
+        (os.path.join(root_dir, "README.md"), "README.md"),  # Use root README.md directly
         (os.path.join(root_dir, "docs", "INSTRUCTION_MANUAL.md"), "INSTRUCTION_MANUAL.md"),
-        (r"C:\Users\arjun\AppData\Local\Android\Sdk\platform-tools\adb.exe", "adb.exe"),
-        (r"C:\Users\arjun\AppData\Local\Android\Sdk\platform-tools\AdbWinApi.dll", "AdbWinApi.dll"),
-        (r"C:\Users\arjun\AppData\Local\Android\Sdk\platform-tools\AdbWinUsbApi.dll", "AdbWinUsbApi.dll"),
+        (os.path.join(platform_tools_dir, "adb.exe"), "adb.exe"),
+        (os.path.join(platform_tools_dir, "AdbWinApi.dll"), "AdbWinApi.dll"),
+        (os.path.join(platform_tools_dir, "AdbWinUsbApi.dll"), "AdbWinUsbApi.dll"),
         (os.path.join(root_dir, "venv", "Lib", "site-packages", "vgamepad", "win", "vigem", "install", "x64", "ViGEmBusSetup_x64.msi"), "ViGEmBusSetup_x64.msi")
     ]
     

@@ -8,6 +8,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_joystick/flutter_joystick.dart';
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+const int kUdpDiscoveryPort = 9001;
 
 // ── Design Tokens ────────────────────────────────────────────────────────────
 
@@ -77,11 +80,12 @@ class _ControllerScreenState extends State<ControllerScreen>
   bool _connected = false;
   bool _connecting = false;
   bool _isBluetooth = false;
+  bool _isDisconnecting = false;
   String _statusMsg = 'Disconnected';
 
   // IP / port fields
   final TextEditingController _ipController =
-      TextEditingController(text: '127.0.0.1');
+      TextEditingController(text: '');
   final TextEditingController _portController =
       TextEditingController(text: '9000');
 
@@ -131,13 +135,44 @@ class _ControllerScreenState extends State<ControllerScreen>
       CurvedAnimation(parent: _radarCtrl, curve: Curves.easeOut),
     );
 
+    _loadSettings();
     _startUdpDiscovery();
+  }
+
+  Future<void> _loadSettings() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      setState(() {
+        _deadzone = prefs.getDouble('deadzone') ?? 0.05;
+        _expo = prefs.getDouble('expo') ?? 1.0;
+        _invertYaw = prefs.getBool('invertYaw') ?? false;
+        _invertThrottle = prefs.getBool('invertThrottle') ?? false;
+        _invertRoll = prefs.getBool('invertRoll') ?? false;
+        _invertPitch = prefs.getBool('invertPitch') ?? false;
+        _ipController.text = prefs.getString('ip') ?? '';
+        _portController.text = prefs.getString('port') ?? '9000';
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _saveSetting(String key, dynamic value) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (value is double) {
+        await prefs.setDouble(key, value);
+      } else if (value is bool) {
+        await prefs.setBool(key, value);
+      } else if (value is String) {
+        await prefs.setString(key, value);
+      }
+    } catch (_) {}
   }
 
   @override
   void dispose() {
     _sendTimer?.cancel();
     _socket?.destroy();
+    _btConnection?.dispose();
     _udpSocket?.close();
     _ipController.dispose();
     _portController.dispose();
@@ -147,30 +182,43 @@ class _ControllerScreenState extends State<ControllerScreen>
   }
 
   void _startUdpDiscovery() async {
-    try {
-      _udpSocket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 9001);
-      _udpSocket!.listen((RawSocketEvent event) {
-        if (event == RawSocketEvent.read) {
-          final datagram = _udpSocket!.receive();
-          if (datagram != null) {
-            try {
-              final message = utf8.decode(datagram.data);
-              final payload = jsonDecode(message);
-              if (payload['service'] == 'AirSimController') {
-                final discoveredIp = datagram.address.address;
-                final discoveredPort = payload['port']?.toString() ?? '9000';
-                if (!_connected && !_connecting) {
-                  setState(() {
-                    _ipController.text = discoveredIp;
-                    _portController.text = discoveredPort;
-                  });
+    int retries = 0;
+    while (retries < 3) {
+      try {
+        _udpSocket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, kUdpDiscoveryPort);
+        _udpSocket!.listen((RawSocketEvent event) {
+          if (event == RawSocketEvent.read) {
+            final datagram = _udpSocket!.receive();
+            if (datagram != null) {
+              try {
+                final message = utf8.decode(datagram.data);
+                final payload = jsonDecode(message);
+                if (payload['service'] == 'AirSimController') {
+                  final discoveredIp = datagram.address.address;
+                  final discoveredPort = payload['port']?.toString() ?? '9000';
+                  if (!_connected && !_connecting) {
+                    setState(() {
+                      _ipController.text = discoveredIp;
+                      _portController.text = discoveredPort;
+                    });
+                  }
                 }
-              }
-            } catch (_) {}
+              } catch (_) {}
+            }
           }
+        });
+        debugPrint('UDP Discovery listening on port $kUdpDiscoveryPort');
+        break;
+      } catch (e) {
+        retries++;
+        debugPrint('UDP Discovery bind attempt $retries failed: $e');
+        if (retries >= 3) {
+          _showToast('Auto-discovery unavailable: Port $kUdpDiscoveryPort in use', kTextMuted);
+        } else {
+          await Future.delayed(const Duration(seconds: 5));
         }
-      });
-    } catch (_) {}
+      }
+    }
   }
 
   double _transformAxis(double rawValue, bool invert) {
@@ -243,30 +291,44 @@ class _ControllerScreenState extends State<ControllerScreen>
 
   Future<void> _connect() async {
     if (_connecting || _connected) return;
+
+    final ipText = _ipController.text.trim();
+    final ip = ipText.isEmpty ? '127.0.0.1' : ipText;
+
+    final portText = _portController.text.trim();
+    final port = int.tryParse(portText) ?? 9000;
+
+    if (port < 1024 || port > 65535) {
+      _showToast('Port must be between 1024 and 65535', kDanger);
+      return;
+    }
+
     setState(() {
       _connecting = true;
       _statusMsg = 'Connecting…';
     });
-
-    final ip = _ipController.text.trim();
-    final port = int.tryParse(_portController.text.trim()) ?? 9000;
 
     try {
       _socket = await Socket.connect(ip, port,
           timeout: const Duration(seconds: 5));
       _socket!.setOption(SocketOption.tcpNoDelay, true);
 
-      // Listen for errors / disconnect
-      _socket!.handleError((_) => _disconnect());
       _socket!.listen(
         (_) {}, // no data expected from server
-        onError: (_) => _disconnect(),
+        onError: (err) {
+          debugPrint('Socket error: $err');
+          _disconnect();
+        },
         onDone: () => _disconnect(),
       );
 
-      // Start 50 Hz send loop
+      // Start 30 Hz send loop
       _sendTimer =
-          Timer.periodic(const Duration(milliseconds: 20), (_) => _sendData());
+          Timer.periodic(const Duration(milliseconds: 33), (_) => _sendData());
+
+      // Save connection settings on success
+      _saveSetting('ip', ipText);
+      _saveSetting('port', portText);
 
       setState(() {
         _connected = true;
@@ -288,53 +350,122 @@ class _ControllerScreenState extends State<ControllerScreen>
   }
 
   void _disconnect() {
-    _sendTimer?.cancel();
-    _sendTimer = null;
+    if (_isDisconnecting) return;
+    _isDisconnecting = true;
+    try {
+      _sendTimer?.cancel();
+      _sendTimer = null;
 
-    if (_isBluetooth) {
-      _btConnection?.dispose();
-      _btConnection = null;
-    } else {
-      _socket?.destroy();
-      _socket = null;
-    }
+      if (_isBluetooth) {
+        _btConnection?.dispose();
+        _btConnection = null;
+      } else {
+        _socket?.destroy();
+        _socket = null;
+      }
 
-    if (mounted) {
-      setState(() {
-        _connected = false;
-        _connecting = false;
-        _isBluetooth = false;
-        _statusMsg = 'Disconnected';
-        _lx = 0;
-        _ly = 0;
-        _rx = 0;
-        _ry = 0;
-      });
-      HapticFeedback.lightImpact();
-      _showToast('Disconnected', kTextMuted);
+      if (mounted) {
+        setState(() {
+          _connected = false;
+          _connecting = false;
+          _isBluetooth = false;
+          _statusMsg = 'Disconnected';
+          _lx = 0;
+          _ly = 0;
+          _rx = 0;
+          _ry = 0;
+        });
+        HapticFeedback.lightImpact();
+        _showToast('Disconnected', kTextMuted);
+      }
+    } finally {
+      _isDisconnecting = false;
     }
   }
 
+  void _confirmDisconnect() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: kBackground,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: kDanger, width: 1.5),
+        ),
+        title: Text(
+          _isBluetooth ? 'DISCONNECT BLUETOOTH?' : 'DISCONNECT SERVER?',
+          style: const TextStyle(
+            fontFamily: 'monospace',
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+            letterSpacing: 2,
+          ),
+        ),
+        content: Text(
+          _isBluetooth 
+              ? 'Are you sure you want to disconnect Bluetooth?'
+              : 'Are you sure you want to disconnect? This will immediately stop sending flight controls.',
+          style: const TextStyle(
+            fontFamily: 'monospace',
+            fontSize: 11,
+            color: kTextPrimary,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text(
+              'CANCEL',
+              style: TextStyle(
+                fontFamily: 'monospace',
+                color: kTextMuted,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _disconnect();
+            },
+            child: const Text(
+              'DISCONNECT',
+              style: TextStyle(
+                fontFamily: 'monospace',
+                color: kDanger,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _sendData() {
+    // Issue 38: Mathematical double rounding instead of string formatting
     final payload = jsonEncode({
-      'lx': double.parse(_lx.toStringAsFixed(4)),
-      'ly': double.parse(_ly.toStringAsFixed(4)),
-      'rx': double.parse(_rx.toStringAsFixed(4)),
-      'ry': double.parse(_ry.toStringAsFixed(4)),
+      'lx': (_lx * 10000).roundToDouble() / 10000.0,
+      'ly': (_ly * 10000).roundToDouble() / 10000.0,
+      'rx': (_rx * 10000).roundToDouble() / 10000.0,
+      'ry': (_ry * 10000).roundToDouble() / 10000.0,
     });
 
     if (_isBluetooth) {
       if (_btConnection == null) return;
       try {
         _btConnection!.output.add(Uint8List.fromList(utf8.encode('$payload\n')));
-      } catch (_) {
+      } catch (e) {
+        debugPrint('Bluetooth write error: $e');
         _disconnect();
       }
     } else {
       if (_socket == null) return;
       try {
         _socket!.write('$payload\n');
-      } catch (_) {
+      } catch (e) {
+        debugPrint('TCP write error: $e');
         _disconnect();
       }
     }
@@ -564,6 +695,8 @@ class _ControllerScreenState extends State<ControllerScreen>
                       ),
                       decoration: InputDecoration(
                         labelText: 'IP',
+                        hintText: '127.0.0.1 (USB)',
+                        hintStyle: const TextStyle(fontSize: 10, color: kTextDark),
                         labelStyle: const TextStyle(
                             fontSize: 10, color: kTextDark),
                         contentPadding:
@@ -584,7 +717,7 @@ class _ControllerScreenState extends State<ControllerScreen>
                           borderSide: const BorderSide(color: kPrimaryCyan, width: 1.5),
                         ),
                       ),
-                      keyboardType: TextInputType.number,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     ),
                   ),
                   const SizedBox(width: 6),
@@ -632,7 +765,7 @@ class _ControllerScreenState extends State<ControllerScreen>
                   Material(
                     color: Colors.transparent,
                     child: InkWell(
-                      onTap: _connected ? _disconnect : _connect,
+                      onTap: _connected ? _confirmDisconnect : _connect,
                       borderRadius: BorderRadius.circular(6),
                       splashColor: (_connected ? kDanger : kPrimaryCyan)
                           .withOpacity(0.3),
@@ -689,7 +822,7 @@ class _ControllerScreenState extends State<ControllerScreen>
                   Material(
                     color: Colors.transparent,
                     child: InkWell(
-                      onTap: _connected ? _disconnect : _connectBluetooth,
+                      onTap: _connected ? _confirmDisconnect : _connectBluetooth,
                       borderRadius: BorderRadius.circular(6),
                       splashColor: kSecondaryGreen.withOpacity(0.3),
                       child: AnimatedContainer(
@@ -1010,7 +1143,7 @@ class _ControllerScreenState extends State<ControllerScreen>
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    '50Hz',
+                    '30Hz',
                     style: TextStyle(
                       fontFamily: 'monospace',
                       fontSize: 9,
@@ -1701,13 +1834,16 @@ class _ControllerScreenState extends State<ControllerScreen>
     });
 
     try {
-      _btConnection = await BluetoothConnection.toAddress(device.address);
+      // Issue 9: Add 5 seconds timeout
+      _btConnection = await BluetoothConnection.toAddress(device.address)
+          .timeout(const Duration(seconds: 5));
       
       _btConnection!.input!.listen((_) {}).onDone(() {
         _disconnect();
       });
 
-      _sendTimer = Timer.periodic(const Duration(milliseconds: 20), (_) => _sendData());
+      // Issue 14: Use 30Hz (33ms) send timer
+      _sendTimer = Timer.periodic(const Duration(milliseconds: 33), (_) => _sendData());
 
       setState(() {
         _connected = true;

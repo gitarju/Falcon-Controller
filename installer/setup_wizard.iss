@@ -44,12 +44,38 @@ Name: "{autodesktop}\FALCON Controller Server"; Filename: "{app}\server.exe"; Ic
 ; Install the ViGEmBus gamepad driver if selected
 Filename: "msiexec.exe"; Parameters: "/i ""{app}\ViGEmBusSetup_x64.msi"" /qb"; Tasks: installdriver; Description: "Installing ViGEmBus Gamepad Driver..."; Flags: runascurrentuser waituntilterminated
 
-; Launch the server after installation
+; Add Windows Firewall Rule
+Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall add rule name=""FALCON Controller Server"" dir=in action=allow program=""{app}\server.exe"" enable=yes"; Flags: runhidden
+
+; Launch the server after installation (skipped if reboot is required)
 Filename: "{app}\server.exe"; Description: "{cm:LaunchProgram,FALCON Controller Server}"; Flags: postinstall nowait skipifsilent
 
+[UninstallRun]
+; Remove Windows Firewall Rule on Uninstall
+Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""FALCON Controller Server"""; Flags: runhidden
+
 [Code]
+var
+  DriverInstalled: Boolean;
+
 function IsDriverMissing(): Boolean;
 begin
   // Check registry if ViGEmBus service is already installed
   Result := not RegKeyExists(HKLM, 'SYSTEM\CurrentControlSet\Services\ViGEmBus');
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssInstall then
+  begin
+    if WizardIsTaskSelected('installdriver') and IsDriverMissing() then
+    begin
+      DriverInstalled := True;
+    end;
+  end;
+end;
+
+function NeedRestart(): Boolean;
+begin
+  Result := DriverInstalled;
 end;

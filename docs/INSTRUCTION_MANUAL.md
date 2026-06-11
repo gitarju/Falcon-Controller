@@ -6,6 +6,14 @@ Welcome to the **FALCON Controller** setup guide. This manual walks you through 
 
 ## 🛠️ Step 1: PC Setup (First Time Only)
 
+### Option A: Setup Wizard (Recommended for End-Users)
+If you installed the application using the Windows Setup Wizard:
+1. **Launch the Server**: Use the Desktop or Start Menu shortcut to launch the **FALCON Controller Server**.
+2. **Driver Check**: The application will automatically verify if the virtual gamepad driver is running. (If you selected the task to install it during setup, the installer will have configured it for you, prompting a reboot if needed).
+3. **Start**: The GUI console opens and the emulation bridge starts automatically.
+
+### Option B: Developer Setup (Running from Source)
+If you cloned the repository and want to run from source code:
 1. **Install Python**:
    - Download and install Python 3.10+ from the official website: [python.org/downloads](https://www.python.org/downloads/)
    - **IMPORTANT**: During installation, check the box that says **"Add Python to PATH"**.
@@ -16,13 +24,8 @@ Welcome to the **FALCON Controller** setup guide. This manual walks you through 
    - Run the `.msi` installer and complete the setup. Restart your PC if prompted.
 
 3. **Launch the Server**:
-   - Double-click **`setup_and_run.bat`** in the `files` folder.
-   - The script will automatically:
-     - Create a Python virtual environment (`venv/`).
-     - Install all required dependencies (including `vgamepad`).
-     - Verify your virtual gamepad driver.
-     - Search and bind to Android Debug Bridge (ADB) for USB connection.
-     - Start the server on Port `9000` (TCP/UDP) and Channel `4` (Bluetooth).
+   - Double-click **`setup_and_run.bat`** in the root folder.
+   - The script will automatically configure a virtual environment, install package dependencies, verify the gamepad driver, and launch the PyQt6 application dashboard.
 
 ---
 
@@ -33,7 +36,7 @@ Welcome to the **FALCON Controller** setup guide. This manual walks you through 
    - Open your phone's file manager, tap the APK, and install it. (If prompted, allow installation from "Unknown Sources").
 
 2. **Enable USB Debugging** (Required *only* if you want to connect via USB cable):
-   - Go to **Settings** $\rightarrow$ **About Phone** on your phone.
+   - Go to **Settings** → **About Phone** on your phone.
    - Scroll down to find the **Build Number** and tap it **7 times** rapidly. You will see a notification: *"You are now a developer!"*.
    - Go back to the main Settings menu, search for **Developer Options** (usually under System/Additional Settings), and open it.
    - Scroll down and toggle **USB Debugging** to **ON**.

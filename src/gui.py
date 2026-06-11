@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
     QPushButton, QLineEdit, QPlainTextEdit, QFrame, QGridLayout, QMessageBox
 )
-from PyQt6.QtCore import pyqtSignal, QObject, Qt
+from PyQt6.QtCore import pyqtSignal, QObject, Qt, QTimer
 from PyQt6.QtGui import QIcon, QFont, QIntValidator
 import src.server_core as server_core
 from src.utils import get_local_ip, check_vgamepad_quietly, open_manual_action
@@ -14,11 +14,13 @@ class WriteStream(QObject):
 
     def write(self, text):
         self.message_written.emit(str(text))
-        sys.__stdout__.write(text)
-        sys.__stdout__.flush()
+        if sys.__stdout__ is not None:
+            sys.__stdout__.write(text)
+            sys.__stdout__.flush()
 
     def flush(self):
-        sys.__stdout__.flush()
+        if sys.__stdout__ is not None:
+            sys.__stdout__.flush()
 
 class StatusCard(QFrame):
     def __init__(self, title, default_val="Checking...", parent=None):
@@ -60,8 +62,12 @@ class MainWindow(QMainWindow):
         self.setStyleSheet("background-color: #121212;")
 
         # Set Window Icon
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        icon_path = os.path.join(script_dir, "..", "assets", "icon.ico")
+        if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+            icon_path = os.path.join(sys._MEIPASS, "assets", "icon.ico")
+        else:
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            icon_path = os.path.join(script_dir, "..", "assets", "icon.ico")
+
         if os.path.exists(icon_path):
             self.setWindowIcon(QIcon(icon_path))
 
@@ -251,7 +257,7 @@ class MainWindow(QMainWindow):
         self.init_indicators()
         
         # Auto-start server shortly after UI mounts
-        self.start_server_clicked()
+        QTimer.singleShot(300, self.start_server_clicked)
 
     def append_log(self, text):
         self.console_text.insertPlainText(text)
@@ -268,8 +274,9 @@ class MainWindow(QMainWindow):
 
         # 2. Network IP Info
         wifi_ip = get_local_ip()
-        self.wifi_card.set_value(f"{wifi_ip}:9000", "#00E5FF")
-        self.local_card.set_value("127.0.0.1:9000", "#FFFFFF")
+        port = self.port_entry.text().strip()
+        self.wifi_card.set_value(f"{wifi_ip}:{port}", "#00E5FF")
+        self.local_card.set_value(f"127.0.0.1:{port}", "#FFFFFF")
 
         # 3. Default state for tunnel & bluetooth
         self.adb_card.set_value("Inactive", "#888888")
