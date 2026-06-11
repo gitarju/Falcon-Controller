@@ -28,3 +28,11 @@ android/local.properties
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# PyInstaller / Build
+dist/
+dist_bin/
+output/
+*.spec
+icon.ico
+
