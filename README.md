@@ -4,7 +4,7 @@ FALCON Controller is a drone simulation interface linking an Android client app 
 
 The PC server is implemented as a professional desktop console using **PyQt6** and packaged into a native Windows installer.
 
-### [📥 Download Windows PC Setup Wizard](https://github.com/gitarju/Falcon-Controller/releases/download/v1.0.0/FALCON_Controller_Server_Setup.exe) | [📥 Download Android App APK (v1.0.0)](https://github.com/gitarju/Falcon-Controller/raw/main/FALCON-Controller-v1.0.0.apk)
+### [📥 Download Windows PC Setup Wizard](https://github.com/gitarju/Falcon-Controller/raw/main/output/FALCON_Controller_Server_Setup.exe) | [📥 Download Android App APK (v1.0.0)](https://github.com/gitarju/Falcon-Controller/raw/main/FALCON-Controller-v1.0.0.apk)
 
 ---
 
@@ -44,7 +44,7 @@ The project directory is structured cleanly for easy cloning and development:
 ## Step 1: PC Installation
 
 1. **Run the Installer**:
-   * Download the latest [FALCON_Controller_Server_Setup.exe](https://github.com/gitarju/Falcon-Controller/releases/download/v1.0.0/FALCON_Controller_Server_Setup.exe).
+   * Download the latest [FALCON_Controller_Server_Setup.exe](https://github.com/gitarju/Falcon-Controller/raw/main/output/FALCON_Controller_Server_Setup.exe).
    * Double-click to run the setup wizard (grant Administrator permissions so it can configure registry keys and gamepad drivers).
 2. **Setup Wizard Steps**:
    * The setup wizard will analyze your system for the virtual gamepad driver.

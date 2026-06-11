@@ -34,6 +34,7 @@ build/
 dist/
 installer/dist_bin/
 output/
+!output/*.exe
 *.spec
 
 
