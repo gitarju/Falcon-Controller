@@ -33,7 +33,7 @@ Desktop.ini
 build/
 dist/
 installer/dist_bin/
-output/
+output/*
 !output/*.exe
 *.spec
 
