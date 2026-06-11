@@ -30,9 +30,10 @@ Thumbs.db
 Desktop.ini
 
 # PyInstaller / Build
+build/
 dist/
-dist_bin/
+installer/dist_bin/
 output/
 *.spec
-icon.ico
+
 

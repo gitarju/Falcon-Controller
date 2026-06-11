@@ -9,9 +9,9 @@ AppPublisher=FALCON Team
 AppPublisherURL=https://github.com/gitarju/Falcon-Controller
 DefaultDirName={autopf}\FALCON Controller Server
 DefaultGroupName=FALCON Controller Server
-OutputDir=d:\AntiGravity\Controller app\files\output
+OutputDir=..\output
 OutputBaseFilename=FALCON_Controller_Server_Setup
-SetupIconFile=d:\AntiGravity\Controller app\files\dist_bin\icon.ico
+SetupIconFile=dist_bin\icon.ico
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
@@ -26,14 +26,14 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"
 Name: "installdriver"; Description: "Install ViGEmBus Virtual Gamepad Driver (Required for controller emulation)"; Check: IsDriverMissing
 
 [Files]
-Source: "d:\AntiGravity\Controller app\files\dist_bin\server.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "d:\AntiGravity\Controller app\files\dist_bin\icon.ico"; DestDir: "{app}"; Flags: ignoreversion
-Source: "d:\AntiGravity\Controller app\files\dist_bin\adb.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "d:\AntiGravity\Controller app\files\dist_bin\AdbWinApi.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "d:\AntiGravity\Controller app\files\dist_bin\AdbWinUsbApi.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "d:\AntiGravity\Controller app\files\dist_bin\ViGEmBusSetup_x64.msi"; DestDir: "{app}"; Flags: ignoreversion
-Source: "d:\AntiGravity\Controller app\files\dist_bin\README.md"; DestDir: "{app}"; Flags: isreadme ignoreversion
-Source: "d:\AntiGravity\Controller app\files\dist_bin\INSTRUCTION_MANUAL.md"; DestDir: "{app}"; Flags: ignoreversion
+Source: "dist_bin\server.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "dist_bin\icon.ico"; DestDir: "{app}"; Flags: ignoreversion
+Source: "dist_bin\adb.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "dist_bin\AdbWinApi.dll"; DestDir: "{app}"; Flags: ignoreversion
+Source: "dist_bin\AdbWinUsbApi.dll"; DestDir: "{app}"; Flags: ignoreversion
+Source: "dist_bin\ViGEmBusSetup_x64.msi"; DestDir: "{app}"; Flags: ignoreversion
+Source: "dist_bin\README.md"; DestDir: "{app}"; Flags: isreadme ignoreversion
+Source: "dist_bin\INSTRUCTION_MANUAL.md"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\FALCON Controller Server"; Filename: "{app}\server.exe"; IconFilename: "{app}\icon.ico"
